@@ -15,8 +15,15 @@ fi
 
 AWQ_QUANT_PATH="${AWQ_QUANT_PATH:-$_REPO_ROOT/gemma-7b-awq}"
 if [[ ! -d "$AWQ_QUANT_PATH" ]]; then
-  echo "ERROR: AWQ weights not found at: $AWQ_QUANT_PATH"
-  echo "       Run: python3 quantization/quantize_awq.py --quant-path \"$AWQ_QUANT_PATH\""
+  echo "ERROR: AWQ weights directory does not exist yet:"
+  echo "       $AWQ_QUANT_PATH"
+  echo ""
+  echo "Create it by quantizing once (needs a free GPU — stop vLLM baseline first):"
+  echo "  cd \"$_REPO_ROOT\" && source .venv/bin/activate"
+  echo "  export HF_TOKEN=...   # or HUGGING_FACE_HUB_TOKEN (Gemma is gated on Hugging Face)"
+  echo "  python3 quantization/quantize_awq.py --model-path google/gemma-7b-it --quant-path \"$AWQ_QUANT_PATH\""
+  echo ""
+  echo "Or set AWQ_QUANT_PATH to an existing AWQ export. See README → Quantization (AWQ)."
   exit 1
 fi
 AWQ_HOST_PATH="$(cd "$AWQ_QUANT_PATH" && pwd)"

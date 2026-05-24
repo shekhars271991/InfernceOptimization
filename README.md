@@ -170,7 +170,7 @@ python3 quantization/quantize_awq.py \
   --quant-path ./gemma-7b-awq
 ```
 
-Optional: **`--calib-path /path/to/calibration.txt`** (UTF-8) for better W4 quality than the tiny default sample. Output defaults to **`./gemma-7b-awq/`** (gitignored).
+Optional: **`--calib-path /path/to/calibration.txt`** (UTF-8) for better W4 quality; **`--calib-chunks`** / **`--calib-seq-len`** tune how many 512-token windows are built (defaults match AutoAWQ). The script feeds **pre-tokenized** windows so Gemma is not skipped by AutoAWQ’s “line longer than 512 tokens” rule. Output defaults to **`./gemma-7b-awq/`** (gitignored).
 
 ### 2. Serve AWQ with vLLM
 

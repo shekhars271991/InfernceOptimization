@@ -2,8 +2,9 @@
 """
 Quantize Gemma (or other causal LM) with AutoAWQ (W4A16) for vLLM `--quantization awq`.
 
-Requires HF token for gated models. Calibration uses a small default text sample;
-override with --calib-path for better quality.
+Requires HF token for gated models. Calibration uses token windows (not one huge string):
+AutoAWQ skips any text line whose encode length exceeds 512 tokens, which used to leave
+zero samples for Gemma. Override with --calib-path for better quality.
 """
 
 from __future__ import annotations
@@ -11,6 +12,42 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+
+
+def _pad_token_id(tokenizer):
+    if tokenizer.pad_token_id is not None:
+        return int(tokenizer.pad_token_id)
+    if tokenizer.eos_token_id is not None:
+        return int(tokenizer.eos_token_id)
+    return 0
+
+
+def _chunks_token_ids(
+    tokenizer, text: str, *, max_seq_len: int, n_chunks: int
+) -> list[list[int]]:
+    """
+    AutoAWQ's get_calib_dataset() skips any string whose encode length is > max_seq_len,
+    and returns [] if no valid chunks exist — so a single long default paragraph fails Gemma.
+    Passing list[list[int]] bypasses that filter and supplies fixed-length windows.
+    """
+    ids = tokenizer.encode(text, add_special_tokens=False)
+    if len(ids) < max_seq_len:
+        pad = _pad_token_id(tokenizer)
+        ids = (ids + [pad] * max_seq_len)[:max_seq_len]
+    out: list[list[int]] = []
+    for i in range(0, min(len(ids), max_seq_len * n_chunks), max_seq_len):
+        chunk = ids[i : i + max_seq_len]
+        if len(chunk) < max_seq_len:
+            pad = _pad_token_id(tokenizer)
+            chunk = chunk + [pad] * (max_seq_len - len(chunk))
+        out.append(chunk)
+        if len(out) >= n_chunks:
+            break
+    if not out:
+        raise SystemExit(
+            "Calibration chunking produced no samples; try --calib-path with more UTF-8 text."
+        )
+    return out
 
 
 def main() -> None:
@@ -32,6 +69,18 @@ def main() -> None:
         "--calib-path",
         default="",
         help="Optional path to a UTF-8 text file used as calibration data",
+    )
+    ap.add_argument(
+        "--calib-chunks",
+        type=int,
+        default=128,
+        help="Number of max-seq-len token windows for calibration (default 128)",
+    )
+    ap.add_argument(
+        "--calib-seq-len",
+        type=int,
+        default=512,
+        help="Token length per calibration window (must match AWQ default max_calib_seq_len; default 512)",
     )
     args = ap.parse_args()
 
@@ -61,15 +110,34 @@ def main() -> None:
         device_map="auto",
     )
 
+    max_len = args.calib_seq_len
+    n_chunks = args.calib_chunks
+
     if args.calib_path:
         data = Path(args.calib_path).read_text(encoding="utf-8", errors="ignore")
-        samples = [data[i : i + 512] for i in range(0, min(len(data), 512 * 128), 512)]
+        if not data.strip():
+            raise SystemExit(f"Calibration file is empty: {args.calib_path}")
+        ids = tokenizer.encode(data, add_special_tokens=False)
+        samples: list[list[int]] = []
+        for i in range(0, len(ids), max_len):
+            chunk = ids[i : i + max_len]
+            if len(chunk) < max_len:
+                pad = _pad_token_id(tokenizer)
+                chunk = chunk + [pad] * (max_len - len(chunk))
+            samples.append(chunk)
+            if len(samples) >= n_chunks:
+                break
         if not samples:
-            samples = ["Calibration fallback text for AWQ. " * 32]
+            raise SystemExit("Calibration text tokenized to nothing; add more text.")
     else:
-        samples = [
-            "Large language model inference uses KV cache and continuous batching. " * 24
-        ]
+        seed = (
+            "Large language model inference uses KV cache and continuous batching. "
+            "Quantization maps high-precision weights to fewer bits while preserving behavior. "
+            * 400
+        )
+        samples = _chunks_token_ids(
+            tokenizer, seed, max_seq_len=max_len, n_chunks=n_chunks
+        )
 
     model.quantize(tokenizer, quant_config=quant_config, calib_data=samples)
     model.save_quantized(str(out_dir), safetensors=True)
@@ -77,7 +145,7 @@ def main() -> None:
     print(f"Saved AWQ model to {out_dir}")
     print("Serve with vLLM, e.g.:")
     print(
-        f'  vllm serve "{out_dir}" --quantization awq --trust-remote-code --max-model-len 8192'
+        f'  vllm serve "{out_dir}" --quantization awq --trust-remote-code --max-model-len 4096'
     )
 
 
