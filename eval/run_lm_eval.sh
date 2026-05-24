@@ -26,14 +26,36 @@ TOKENIZED="${LM_EVAL_TOKENIZED_REQUESTS:-True}"
 
 TASKS="${LM_EVAL_TASKS:-mmlu,gsm8k,hellaswag,truthfulqa_mc1}"
 # Default 100 examples per task (quick run). Full datasets: `export LM_EVAL_LIMIT=` (empty) first.
-if [[ ! -v LM_EVAL_LIMIT ]]; then
+if [ -z "${LM_EVAL_LIMIT+x}" ]; then
   export LM_EVAL_LIMIT=100
 fi
 LIMIT="${LM_EVAL_LIMIT}"
 
 # --apply_chat_template: instruct prompts on the completions API (see lm-eval docs).
-# Pass more flags after the script name, e.g. ./eval/run_lm_eval.sh --trust_remote_code
+# Gemma (e.g. google/gemma-7b-it) chat templates raise "System role not supported" because
+# few-shot tasks include system messages — skip unless LM_EVAL_APPLY_CHAT_TEMPLATE=1 forces it.
+# LM_EVAL_APPLY_CHAT_TEMPLATE=0 always skips.
 export OPENAI_API_KEY="${OPENAI_API_KEY:-EMPTY}"
+
+_apply_chat_template_flag() {
+  case "${LM_EVAL_APPLY_CHAT_TEMPLATE:-auto}" in
+    0|false|False|no|NO) return 1 ;;
+    1|true|True|yes|YES) return 0 ;;
+    auto)
+      if echo "${MODEL_NAME}" | grep -qi gemma; then
+        return 1
+      fi
+      return 0
+      ;;
+    *)
+      echo "WARN: unknown LM_EVAL_APPLY_CHAT_TEMPLATE=${LM_EVAL_APPLY_CHAT_TEMPLATE}; using auto" >&2
+      if echo "${MODEL_NAME}" | grep -qi gemma; then
+        return 1
+      fi
+      return 0
+      ;;
+  esac
+}
 
 MODEL_ARGS="model=${MODEL_NAME},base_url=${COMPLETIONS_URL},num_concurrent=${NUM_CONCURRENT},tokenized_requests=${TOKENIZED},tokenizer_backend=${TOKENIZER_BACKEND},max_length=${MAX_LENGTH}"
 if [[ -n "${HF_TOKEN:-}" ]]; then
@@ -45,10 +67,12 @@ fi
 ARGS=(
   --model local-completions
   --model_args "${MODEL_ARGS}"
-  --apply_chat_template
   --tasks "${TASKS}"
   --batch_size "${LM_EVAL_BATCH_SIZE:-1}"
 )
+if _apply_chat_template_flag; then
+  ARGS+=(--apply_chat_template)
+fi
 
 if [[ -n "${LIMIT}" ]]; then
   ARGS+=(--limit "${LIMIT}")
@@ -66,7 +90,9 @@ if [[ "${LM_EVAL_NO_SAVE:-0}" != "1" ]]; then
   ARGS+=(--output_path "$OUTPUT_PATH")
 fi
 
-echo "Running lm_eval with tasks=${TASKS} limit=${LIMIT:-none} completions_url=${COMPLETIONS_URL}"
+_chat_note="off"
+if _apply_chat_template_flag; then _chat_note="on"; fi
+echo "Running lm_eval with tasks=${TASKS} limit=${LIMIT:-none} completions_url=${COMPLETIONS_URL} apply_chat_template=${_chat_note}"
 if [[ "${LM_EVAL_NO_SAVE:-0}" != "1" ]]; then
   echo "Results JSON: ${OUTPUT_PATH:-}"
 fi
