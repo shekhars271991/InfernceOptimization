@@ -1,7 +1,7 @@
 # Inference / serving (CUDA wheels often installed separately; see scripts/setup_instance.sh)
 vllm>=0.6.0
 autoawq>=0.2.0
-# [api] pulls tenacity etc. for local-chat-completions / OpenAI-compatible servers
+# [api] pulls tenacity etc. for local-completions / OpenAI-compatible servers (lm-eval)
 lm-eval[api]>=0.4.0
 
 # Disaggregated prefill proxy (mirrors vLLM benchmark proxy deps)

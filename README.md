@@ -172,9 +172,11 @@ python3 quantization/bench_quant_compare.py
 
 ## Evaluation (lm-eval)
 
-`requirements.txt` installs **`lm-eval[api]`** so **`local-chat-completions`** (used by `eval/run_lm_eval.sh`) has dependencies such as **tenacity**. If you installed lm-eval without extras, run **`pip install 'lm-eval[api]'`**.
+`requirements.txt` installs **`lm-eval[api]`** (e.g. **tenacity**) for API-backed eval. If you installed lm-eval without extras, run **`pip install 'lm-eval[api]'`**.
 
-With vLLM serving chat completions:
+`eval/run_lm_eval.sh` uses **`local-completions`** against **`/v1/completions`** so tasks that need **loglikelihood** (MMLU, HellaSwag, TruthfulQA MC, …) work. The chat-only API does not support loglikelihood; see [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) docs.
+
+With vLLM serving (OpenAI-compatible **completions** on the same host/port as your server):
 
 ```bash
 export BENCH_BASE_URL=http://127.0.0.1:8000
@@ -182,9 +184,9 @@ export BENCH_MODEL=google/gemma-7b-it
 ./eval/run_lm_eval.sh
 ```
 
-Optional: `LM_EVAL_TASKS`, **`LM_EVAL_LIMIT`** (defaults to **100** per task for a quick run; use **`export LM_EVAL_LIMIT=`** empty for full datasets), `LM_EVAL_NUM_CONCURRENT`, `LM_EVAL_BATCH_SIZE`. The script passes **`--apply_chat_template`** so prompts become proper chat **`messages`** for **`local-chat-completions`** (required by recent lm-eval). Add **`--trust_remote_code`** after the script if the tokenizer needs it.
+Optional env: `LM_EVAL_TASKS`, **`LM_EVAL_LIMIT`** (defaults to **100** per task; **`export LM_EVAL_LIMIT=`** empty for full runs), **`LM_EVAL_MAX_LENGTH`** (default **4096**, align with vLLM `--max-model-len`), **`BENCH_COMPLETIONS_URL`** if the completions path is not `${BENCH_BASE_URL}/v1/completions`, **`LM_EVAL_NUM_CONCURRENT`**, **`LM_EVAL_BATCH_SIZE`** (default **1** for API loglikelihood), **`LM_EVAL_TOKENIZER_BACKEND`** (default **huggingface**), **`LM_EVAL_TOKENIZED_REQUESTS`**. The script passes **`--apply_chat_template`** for instruct models. **`HF_TOKEN`** / **`HUGGING_FACE_HUB_TOKEN`** are forwarded for tokenizer hub access when set. Append **`--trust_remote_code`** after the script if the tokenizer needs it.
 
-Some tasks (notably certain **MMLU** setups) expect loglikelihood via a **completions** API; if a task fails on chat, trim `LM_EVAL_TASKS` or use a completions-based workflow (see [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) docs).
+If vLLM returns errors about **logprobs** limits on multiple-choice tasks, increase the server’s **`--max-logprobs`** (see [vLLM OpenAI server](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) options).
 
 ## Notebook
 
