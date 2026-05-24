@@ -170,7 +170,7 @@ python3 quantization/quantize_awq.py \
   --quant-path ./gemma-7b-awq
 ```
 
-Optional: **`--calib-path /path/to/calibration.txt`** (UTF-8) for better W4 quality; **`--calib-chunks`** / **`--calib-seq-len`** tune how many 512-token windows are built. The script feeds **pre-tokenized** windows so Gemma is not skipped by AutoAWQ’s “line longer than 512 tokens” rule. On a **single ~24GB GPU**, AutoAWQ’s effective calibration **batch** is driven by **`--max-calib-samples`** (default **16**); raise it only if you have headroom. Use **`--n-parallel-calib-samples 1`** (default) to avoid processing all calib rows on GPU at once. If clip search still OOMs, try **`--max-calib-samples 8`** or **`--max-chunk-memory-mb 256`**. Output defaults to **`./gemma-7b-awq/`** (gitignored).
+Optional: **`--calib-path /path/to/calibration.txt`** (UTF-8) for better W4 quality; **`--calib-chunks`** / **`--calib-seq-len`** tune how many 512-token windows are built. The script feeds **pre-tokenized** windows so Gemma is not skipped by AutoAWQ’s “line longer than 512 tokens” rule. On a **single ~24GB GPU**, AutoAWQ’s effective calibration **batch** is driven by **`--max-calib-samples`** (default **16**); raise it only if you have headroom. Use **`--n-parallel-calib-samples 1`** (default) to avoid processing all calib rows on GPU at once. **Clipping is off by default** (`apply_clip=False`): AutoAWQ’s clip search can allocate multi‑GiB on wide Gemma layers while the FP model is loaded; use **`--apply-clip`** only if you have spare VRAM (e.g. 40GB+). Output defaults to **`./gemma-7b-awq/`** (gitignored).
 
 ### 2. Serve AWQ with vLLM
 

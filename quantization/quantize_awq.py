@@ -9,6 +9,11 @@ zero samples for Gemma. Override with --calib-path for better quality.
 VRAM: AutoAWQ builds a batch of size ``max_calib_samples`` (see their ``get_calib_dataset``).
 The upstream default (128) is often too large for a single ~24GB GPU on 7B; this script defaults
 to smaller values and serializes layer forwards with ``n_parallel_calib_samples=1``.
+
+Clipping (``apply_clip``) runs ``_search_best_clip``, which can allocate multi‑GiB tensors on wide
+Gemma MLP projections while the full model is still resident. This script defaults to
+``apply_clip=False`` so single‑GPU ~24GB runs complete; pass ``--apply-clip`` on larger GPUs if
+you want AutoAWQ’s clipping pass (may OOM on 22–24GB).
 """
 
 from __future__ import annotations
@@ -104,6 +109,11 @@ def main() -> None:
         default=0,
         help="Cap for AutoAWQ max_chunk_memory in MiB (0 = use library default ~1024 MiB)",
     )
+    ap.add_argument(
+        "--apply-clip",
+        action="store_true",
+        help="Run AutoAWQ weight clipping (AutoAWQ default True; uses much more VRAM on Gemma 7B)",
+    )
     args = ap.parse_args()
     if args.max_calib_samples < 1:
         raise SystemExit("--max-calib-samples must be >= 1")
@@ -171,6 +181,7 @@ def main() -> None:
         max_calib_samples=args.max_calib_samples,
         max_calib_seq_len=args.calib_seq_len,
         n_parallel_calib_samples=args.n_parallel_calib_samples,
+        apply_clip=args.apply_clip,
     )
     if args.max_chunk_memory_mb > 0:
         quant_kwargs["max_chunk_memory"] = args.max_chunk_memory_mb * 1024 * 1024
