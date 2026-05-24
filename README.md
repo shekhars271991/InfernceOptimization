@@ -8,6 +8,18 @@ Scripts and benchmarks for **Gemma 7B** (default: `google/gemma-7b-it`) on **vLL
 - Python 3.10+ recommended.
 - Hugging Face: accept the Gemma license and set `HUGGING_FACE_HUB_TOKEN` or `HF_TOKEN`.
 
+## Where to run (instances)
+
+**Gemma 7B in FP16/BF16** needs on the order of **~14–16 GB** of GPU memory per running server (more with long `MAX_MODEL_LEN` and concurrent KV cache). Pick a GPU with enough headroom.
+
+| Workload | Sensible choices |
+|----------|------------------|
+| **Single-node baseline + benchmarks** | One **24 GB** class GPU is comfortable, e.g. **AWS `g5.xlarge`** (1× NVIDIA **A10G** 24 GB), **GCP** with **L4** / **A10**, or a **Vast.ai / RunPod** 3090/4090 24 GB box. **16 GB** (e.g. **T4**) can work but is tighter—lower concurrency and `max-model-len` if you OOM. |
+| **Disaggregated prefill + decode** | Each side runs a **full** vLLM replica, so aim for **two similar GPUs**, either **two VMs** (e.g. **2× `g5.xlarge`**, one prefill and one decode, set `VLLM_HOST_IP` / URLs) or **one host with two GPUs** (e.g. **AWS `g5.12xlarge`** with 4× A10G—use two of them for prefill/decode). **NVLink is not required** for the default P2P NCCL connector over TCP on many cloud setups. |
+| **AWQ 4-bit** | Often fits comfortably on **one 16–24 GB** GPU; good for a second pass on a single cheap instance after disagg experiments. |
+
+Use a recent **Linux** image with NVIDIA drivers (or a CUDA-capable deep-learning AMI). Match your **vLLM / PyTorch** install to the driver/CUDA stack on that image.
+
 ## Setup
 
 ```bash
