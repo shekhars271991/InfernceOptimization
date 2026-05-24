@@ -1,0 +1,18 @@
+# lm-eval snapshots (committed). Auto JSON from ./eval/run_lm_eval.sh: run-*.json in this folder (gitignored).
+
+## 2026-05-24 — google/gemma-7b-it (vLLM OpenAI server, local-completions)
+- Script: ./eval/run_lm_eval.sh
+- Tasks: gsm8k, truthfulqa_mc1
+- completions_url: http://127.0.0.1:8000/v1/completions
+- limit: 100 per task (lm-eval warns: for testing only, not official metrics)
+- model_args: num_concurrent=4, tokenized_requests=True, tokenizer_backend=huggingface, max_length=4096
+- batch_size: 1
+
+Results (table summary):
+| Task           | Filter          | n-shot | Metric       | Value | Stderr |
+|----------------|-----------------|--------|--------------|-------|--------|
+| gsm8k          | flexible-extract| 5      | exact_match  | 0.34  | 0.0476 |
+| gsm8k          | strict-match    | 5      | exact_match  | 0.26  | 0.0441 |
+| truthfulqa_mc1 | none          | 0      | acc          | 0.26  | 0.0441 |
+
+Wall clock (from logs): ~4m12s generate_until (100 GSM8K) + ~1m02s loglikelihood (521 requests TruthfulQA).

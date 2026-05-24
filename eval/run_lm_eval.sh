@@ -54,5 +54,20 @@ if [[ -n "${LIMIT}" ]]; then
   ARGS+=(--limit "${LIMIT}")
 fi
 
+# Save JSON (default: results/lm_eval/run-<timestamp>.json, gitignored). LM_EVAL_OUTPUT_PATH=..., LM_EVAL_NO_SAVE=1, LM_EVAL_OUT_DIR=...
+if [[ "${LM_EVAL_NO_SAVE:-0}" != "1" ]]; then
+  if [[ -n "${LM_EVAL_OUTPUT_PATH:-}" ]]; then
+    OUTPUT_PATH="$LM_EVAL_OUTPUT_PATH"
+  else
+    OUT_DIR="${LM_EVAL_OUT_DIR:-$ROOT/results/lm_eval}"
+    OUTPUT_PATH="$OUT_DIR/run-$(date +%Y%m%d-%H%M%S).json"
+  fi
+  mkdir -p "$(dirname "$OUTPUT_PATH")"
+  ARGS+=(--output_path "$OUTPUT_PATH")
+fi
+
 echo "Running lm_eval with tasks=${TASKS} limit=${LIMIT:-none} completions_url=${COMPLETIONS_URL}"
+if [[ "${LM_EVAL_NO_SAVE:-0}" != "1" ]]; then
+  echo "Results JSON: ${OUTPUT_PATH:-}"
+fi
 python3 -m lm_eval "${ARGS[@]}" "$@"

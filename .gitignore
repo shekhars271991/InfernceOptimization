@@ -18,7 +18,11 @@ env/
 
 # Local artifacts
 gemma-7b-awq/
-results/
+# Benchmark + lm-eval JSON under results/ (keep results/lm_eval/recorded_runs.txt committed)
+results/*
+!results/lm_eval/
+results/lm_eval/*
+!results/lm_eval/recorded_runs.txt
 
 # Jupyter
 .ipynb_checkpoints/

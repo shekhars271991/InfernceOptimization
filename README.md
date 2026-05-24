@@ -154,21 +154,71 @@ python3 benchmarks/bench_latency.py
 python3 benchmarks/bench_throughput.py
 ```
 
-## Quantization (AWQ)
+## Quantization (AWQ) — first optimization after baseline
+
+Use this after you have a **baseline** FP16/BF16 server and optional **benchmarks + lm-eval** numbers to compare against.
+
+### 1. Free GPU memory and quantize (host venv; not Docker)
+
+**vLLM cannot share the GPU** with a long AWQ calibration—**stop** the baseline container or server first.
 
 ```bash
-python3 quantization/quantize_awq.py --model-path google/gemma-7b-it --quant-path ./gemma-7b-awq
+source .venv/bin/activate
+export HF_TOKEN=...   # or HUGGING_FACE_HUB_TOKEN; Gemma is gated on Hugging Face
+python3 quantization/quantize_awq.py \
+  --model-path google/gemma-7b-it \
+  --quant-path ./gemma-7b-awq
 ```
 
-Serve the output directory with vLLM using `--quantization awq`.
+Optional: **`--calib-path /path/to/calibration.txt`** (UTF-8) for better W4 quality than the tiny default sample. Output defaults to **`./gemma-7b-awq/`** (gitignored).
 
-Compare FP16 vs AWQ servers (two URLs):
+### 2. Serve AWQ with vLLM
+
+**Docker (same pattern as baseline):** mounts `./gemma-7b-awq` and uses **`--quantization awq`**. Default port **`8001`** so you can run FP16 on **8000** when you have **two GPUs** (or two hosts).
+
+```bash
+./scripts/launch_awq_docker.sh
+# Foreground; Ctrl+C stops. Background:
+VLLM_DOCKER_DETACH=1 ./scripts/launch_awq_docker.sh
+docker logs -f vllm-awq
+```
+
+Useful env vars: **`AWQ_QUANT_PATH`** (default repo `./gemma-7b-awq`), **`VLLM_PORT`** (default **8001**), **`MAX_MODEL_LEN`**, **`GPU_MEMORY_UTILIZATION`**, **`AWQ_SERVED_MODEL_NAME`** (default **`google/gemma-7b-it`** so clients keep the same **`BENCH_MODEL`**), same Docker image / detach / HF cache vars as **`launch_baseline_docker.sh`**.
+
+**Host venv** (if you prefer not to use Docker):
+
+```bash
+vllm serve ./gemma-7b-awq --quantization awq --trust-remote-code \
+  --served-model-name google/gemma-7b-it --host 0.0.0.0 --port 8001 \
+  --max-model-len 4096 --enable-chunked-prefill
+```
+
+### 3. Re-run benchmarks and/or lm-eval
+
+Point tools at the AWQ port (**`8001`** if you used the AWQ Docker defaults):
+
+```bash
+export BENCH_BASE_URL=http://127.0.0.1:8001
+export BENCH_MODEL=google/gemma-7b-it
+python3 benchmarks/bench_latency.py
+python3 benchmarks/bench_throughput.py
+export BENCH_COMPLETIONS_URL=http://127.0.0.1:8001/v1/completions
+./eval/run_lm_eval.sh
+```
+
+Append a short summary to **`results/lm_eval/recorded_runs.txt`** if you want a permanent log next to your FP16 run.
+
+### 4. Side-by-side FP16 vs AWQ (optional)
+
+**`quantization/bench_quant_compare.py`** calls latency + throughput against **both** URLs in one go, so **both servers must be up at once** (e.g. **two GPUs**: FP16 on **8000**, AWQ on **8001**, with `CUDA_VISIBLE_DEVICES` set per process/container as you usually do for multi-GPU).
 
 ```bash
 export BENCH_FP16_URL=http://127.0.0.1:8000
 export BENCH_AWQ_URL=http://127.0.0.1:8001
 python3 quantization/bench_quant_compare.py
 ```
+
+On a **single GPU**, run FP16 benches first and save JSON, then **stop FP16**, serve AWQ on **8000**, run the same bench scripts again, and compare in **`notebooks/results_analysis.ipynb`** (or diff the JSON files under **`results/`**).
 
 ## Evaluation (lm-eval)
 
@@ -184,7 +234,7 @@ export BENCH_MODEL=google/gemma-7b-it
 ./eval/run_lm_eval.sh
 ```
 
-Optional env: `LM_EVAL_TASKS`, **`LM_EVAL_LIMIT`** (defaults to **100** per task; **`export LM_EVAL_LIMIT=`** empty for full runs), **`LM_EVAL_MAX_LENGTH`** (default **4096**, align with vLLM `--max-model-len`), **`BENCH_COMPLETIONS_URL`** if the completions path is not `${BENCH_BASE_URL}/v1/completions`, **`LM_EVAL_NUM_CONCURRENT`**, **`LM_EVAL_BATCH_SIZE`** (default **1** for API loglikelihood), **`LM_EVAL_TOKENIZER_BACKEND`** (default **huggingface**), **`LM_EVAL_TOKENIZED_REQUESTS`**. The script passes **`--apply_chat_template`** for instruct models. **`HF_TOKEN`** / **`HUGGING_FACE_HUB_TOKEN`** are forwarded for tokenizer hub access when set. Append **`--trust_remote_code`** after the script if the tokenizer needs it.
+Optional env: `LM_EVAL_TASKS`, **`LM_EVAL_LIMIT`** (defaults to **100** per task; **`export LM_EVAL_LIMIT=`** empty for full runs), **`LM_EVAL_MAX_LENGTH`** (default **4096**, align with vLLM `--max-model-len`), **`BENCH_COMPLETIONS_URL`** if the completions path is not `${BENCH_BASE_URL}/v1/completions`, **`LM_EVAL_NUM_CONCURRENT`**, **`LM_EVAL_BATCH_SIZE`** (default **1** for API loglikelihood), **`LM_EVAL_TOKENIZER_BACKEND`** (default **huggingface**), **`LM_EVAL_TOKENIZED_REQUESTS`**. The script passes **`--apply_chat_template`** for instruct models. **`HF_TOKEN`** / **`HUGGING_FACE_HUB_TOKEN`** are forwarded for tokenizer hub access when set. Append **`--trust_remote_code`** after the script if the tokenizer needs it. Each run writes aggregated JSON to **`results/lm_eval/run-<timestamp>.json`** (under **`results/`**, gitignored) unless **`LM_EVAL_NO_SAVE=1`** or you set **`LM_EVAL_OUTPUT_PATH`**. Optional **`LM_EVAL_OUT_DIR`** changes the default directory. Committed score snapshots: append in **`results/lm_eval/recorded_runs.txt`**.
 
 If vLLM returns errors about **logprobs** limits on multiple-choice tasks, increase the server’s **`--max-logprobs`** (see [vLLM OpenAI server](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) options).
 
@@ -198,12 +248,12 @@ Open `notebooks/results_analysis.ipynb` to load JSON files from `results/` and p
 InferenceOpt/
 ├── README.md
 ├── requirements.txt
-├── scripts/
+├── scripts/            # launch_baseline*.sh, launch_awq_docker.sh, …
 ├── benchmarks/
 ├── quantization/
-├── eval/
+├── eval/               # run_lm_eval.sh
 ├── notebooks/
-└── results/          # created when you run benchmarks
+└── results/            # benchmarks + lm_eval JSON (gitignored); lm_eval/recorded_runs.txt tracked
 ```
 
 ## License
