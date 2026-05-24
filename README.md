@@ -63,6 +63,38 @@ vLLM wheels may still depend on your driver/CUDA stack—see the [vLLM install d
 
 ## Single-node baseline (vLLM)
 
+### Option B — Docker (recommended on minimal Ubuntu)
+
+Uses the official **`vllm/vllm-openai`** image so **FlashInfer / `nvcc`** live inside the container (no host CUDA toolkit fight).
+
+**One-time host setup (Ubuntu):**
+
+```bash
+sudo apt-get update && sudo apt-get install -y docker.io
+sudo usermod -aG docker "$USER"   # then log out/in, or: newgrp docker
+```
+
+Install the **[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)** so `docker run --gpus all` works, then:
+
+```bash
+export HF_MODEL_NAME=google/gemma-7b-it   # optional; default
+# Optional: put HF_TOKEN or HUGGING_FACE_HUB_TOKEN in scripts/.env (see scripts/docker-env.template)
+./scripts/launch_baseline_docker.sh
+```
+
+Foreground run (`-it`); **Ctrl+C** stops the container. For **background**:
+
+```bash
+VLLM_DOCKER_DETACH=1 ./scripts/launch_baseline_docker.sh
+docker logs -f vllm-baseline
+```
+
+Useful env vars: `VLLM_DOCKER_IMAGE` (default `vllm/vllm-openai:latest` — **pin a tag** for reproducibility), `VLLM_DOCKER_SKIP_PULL=1`, `HF_CACHE`, `VLLM_PORT`, `MAX_MODEL_LEN`, `GPU_MEMORY_UTILIZATION`, `ENABLE_PREFIX_CACHE=1`.
+
+Benchmarks from the host still use `BENCH_BASE_URL=http://127.0.0.1:8000` (or your `VLLM_PORT`) against the container thanks to **`--network host`**.
+
+### Option A — venv on the host
+
 ```bash
 export HF_MODEL_NAME=google/gemma-7b-it   # optional; this is the default
 ./scripts/launch_baseline.sh
@@ -75,6 +107,8 @@ ENABLE_PREFIX_CACHE=1 ./scripts/launch_baseline.sh
 ```
 
 Useful environment variables: `VLLM_PORT`, `MAX_MODEL_LEN`, `GPU_MEMORY_UTILIZATION`.
+
+On **driver-only** Ubuntu images, host vLLM may require **`nvcc`** (see **`./scripts/setup_instance.sh`** and **`scripts/_inferopt_cuda_env.sh`**) unless you use **Docker** above.
 
 ## Disaggregated prefill + decode (experimental)
 
