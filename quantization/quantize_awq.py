@@ -5,6 +5,10 @@ Quantize Gemma (or other causal LM) with AutoAWQ (W4A16) for vLLM `--quantizatio
 Requires HF token for gated models. Calibration uses token windows (not one huge string):
 AutoAWQ skips any text line whose encode length exceeds 512 tokens, which used to leave
 zero samples for Gemma. Override with --calib-path for better quality.
+
+VRAM: AutoAWQ builds a batch of size ``max_calib_samples`` (see their ``get_calib_dataset``).
+The upstream default (128) is often too large for a single ~24GB GPU on 7B; this script defaults
+to smaller values and serializes layer forwards with ``n_parallel_calib_samples=1``.
 """
 
 from __future__ import annotations
@@ -80,9 +84,31 @@ def main() -> None:
         "--calib-seq-len",
         type=int,
         default=512,
-        help="Token length per calibration window (must match AWQ default max_calib_seq_len; default 512)",
+        help="Token length per calibration window (passed as max_calib_seq_len; default 512)",
+    )
+    ap.add_argument(
+        "--max-calib-samples",
+        type=int,
+        default=16,
+        help="Max calibration sequences after AutoAWQ split (batch size during init); lower for less VRAM (default 16)",
+    )
+    ap.add_argument(
+        "--n-parallel-calib-samples",
+        type=int,
+        default=1,
+        help="How many calib sequences run on GPU per layer forward; 1 minimizes VRAM (default 1). None in AutoAWQ means all at once.",
+    )
+    ap.add_argument(
+        "--max-chunk-memory-mb",
+        type=int,
+        default=0,
+        help="Cap for AutoAWQ max_chunk_memory in MiB (0 = use library default ~1024 MiB)",
     )
     args = ap.parse_args()
+    if args.max_calib_samples < 1:
+        raise SystemExit("--max-calib-samples must be >= 1")
+    if args.n_parallel_calib_samples < 1:
+        raise SystemExit("--n-parallel-calib-samples must be >= 1")
 
     try:
         from awq import AutoAWQForCausalLM
@@ -139,7 +165,17 @@ def main() -> None:
             tokenizer, seed, max_seq_len=max_len, n_chunks=n_chunks
         )
 
-    model.quantize(tokenizer, quant_config=quant_config, calib_data=samples)
+    quant_kwargs = dict(
+        quant_config=quant_config,
+        calib_data=samples,
+        max_calib_samples=args.max_calib_samples,
+        max_calib_seq_len=args.calib_seq_len,
+        n_parallel_calib_samples=args.n_parallel_calib_samples,
+    )
+    if args.max_chunk_memory_mb > 0:
+        quant_kwargs["max_chunk_memory"] = args.max_chunk_memory_mb * 1024 * 1024
+
+    model.quantize(tokenizer, **quant_kwargs)
     model.save_quantized(str(out_dir), safetensors=True)
     tokenizer.save_pretrained(str(out_dir))
     print(f"Saved AWQ model to {out_dir}")
