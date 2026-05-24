@@ -183,12 +183,12 @@ VLLM_DOCKER_DETACH=1 ./scripts/launch_awq_docker.sh
 docker logs -f vllm-awq
 ```
 
-Useful env vars: **`AWQ_QUANT_PATH`** (default repo `./gemma-7b-awq`), **`VLLM_PORT`** (default **8001**), **`MAX_MODEL_LEN`**, **`GPU_MEMORY_UTILIZATION`**, **`AWQ_SERVED_MODEL_NAME`** (default **`google/gemma-7b-it`** so clients keep the same **`BENCH_MODEL`**), same Docker image / detach / HF cache vars as **`launch_baseline_docker.sh`**.
+Useful env vars: **`AWQ_QUANT_PATH`** (default repo `./gemma-7b-awq`), **`VLLM_PORT`** (default **8001**), **`MAX_MODEL_LEN`**, **`VLLM_DTYPE`** (default **`float16`** — required for **`quantization=awq`**; Gemma’s config dtype is bf16, which vLLM rejects for AWQ), **`GPU_MEMORY_UTILIZATION`**, **`AWQ_SERVED_MODEL_NAME`** (default **`google/gemma-7b-it`** so clients keep the same **`BENCH_MODEL`**), same Docker image / detach / HF cache vars as **`launch_baseline_docker.sh`**.
 
 **Host venv** (if you prefer not to use Docker):
 
 ```bash
-vllm serve ./gemma-7b-awq --quantization awq --trust-remote-code \
+vllm serve ./gemma-7b-awq --quantization awq --dtype float16 --trust-remote-code \
   --served-model-name google/gemma-7b-it --host 0.0.0.0 --port 8001 \
   --max-model-len 4096 --enable-chunked-prefill
 ```

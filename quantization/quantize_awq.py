@@ -192,7 +192,7 @@ def main() -> None:
     print(f"Saved AWQ model to {out_dir}")
     print("Serve with vLLM, e.g.:")
     print(
-        f'  vllm serve "{out_dir}" --quantization awq --trust-remote-code --max-model-len 4096'
+        f'  vllm serve "{out_dir}" --quantization awq --dtype float16 --trust-remote-code --max-model-len 4096'
     )
 
 

@@ -31,6 +31,8 @@ AWQ_HOST_PATH="$(cd "$AWQ_QUANT_PATH" && pwd)"
 HOST="${VLLM_HOST:-0.0.0.0}"
 PORT="${VLLM_PORT:-8001}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-4096}"
+# vLLM rejects bfloat16 for quantization=awq (Gemma config defaults to bf16).
+VLLM_DTYPE="${VLLM_DTYPE:-float16}"
 GPU_MEM_UTIL="${GPU_MEMORY_UTILIZATION:-0.93}"
 PREFIX_CACHE="${ENABLE_PREFIX_CACHE:-0}"
 # Match BENCH_MODEL / OpenAI client "model" id when pointing at this server.
@@ -72,6 +74,7 @@ if [[ -n "${HUGGING_FACE_HUB_TOKEN:-}" ]]; then DOCKER_OPTS+=(-e "HUGGING_FACE_H
 VLLM_ARGS=(
   /models/awq
   --quantization awq
+  --dtype "$VLLM_DTYPE"
   --served-model-name "$SERVED_NAME"
   --host "$HOST"
   --port "$PORT"
