@@ -3,6 +3,12 @@
 # On a second machine, set VLLM_HOST_IP to this host's reachable IP.
 set -euo pipefail
 
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
+if [[ -d "$_REPO_ROOT/.venv" ]]; then
+  export PATH="$_REPO_ROOT/.venv/bin:$PATH"
+fi
+
 MODEL_NAME="${HF_MODEL_NAME:-google/gemma-7b-it}"
 : "${VLLM_HOST_IP:=127.0.0.1}"
 

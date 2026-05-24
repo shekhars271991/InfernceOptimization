@@ -1,0 +1,28 @@
+# SSH / keys (do not commit)
+kvopt.pem
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Local artifacts
+gemma-7b-awq/
+results/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

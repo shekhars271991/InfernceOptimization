@@ -2,6 +2,12 @@
 # Single-node vLLM OpenAI server — FP16/BF16 baseline (no disaggregated prefill).
 set -euo pipefail
 
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
+if [[ -d "$_REPO_ROOT/.venv" ]]; then
+  export PATH="$_REPO_ROOT/.venv/bin:$PATH"
+fi
+
 # Default: Gemma 7B Instruct (accept license on Hugging Face first).
 MODEL_NAME="${HF_MODEL_NAME:-google/gemma-7b-it}"
 

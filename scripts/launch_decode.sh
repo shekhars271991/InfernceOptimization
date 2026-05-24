@@ -3,6 +3,12 @@
 # kv_port must differ from prefill (vLLM upstream example uses 14580 for decode).
 set -euo pipefail
 
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
+if [[ -d "$_REPO_ROOT/.venv" ]]; then
+  export PATH="$_REPO_ROOT/.venv/bin:$PATH"
+fi
+
 MODEL_NAME="${HF_MODEL_NAME:-google/gemma-7b-it}"
 : "${VLLM_HOST_IP:=127.0.0.1}"
 

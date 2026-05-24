@@ -7,6 +7,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+if [[ -d "$ROOT/.venv" ]]; then
+  export PATH="$ROOT/.venv/bin:$PATH"
+fi
 
 MODEL_NAME="${BENCH_MODEL:-google/gemma-7b-it}"
 BASE_URL="${BENCH_BASE_URL:-http://127.0.0.1:8000}"

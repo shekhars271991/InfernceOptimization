@@ -24,11 +24,42 @@ Use a recent **Linux** image with NVIDIA drivers (or a CUDA-capable deep-learnin
 
 ## Setup
 
+The repo uses a **project virtualenv** at **`.venv/`** so installs work on **Ubuntu 24.04+** (PEP 668 blocks `pip install` into the system Python).
+
 ```bash
 ./scripts/setup_instance.sh
 ```
 
-Or manually: `pip install -r requirements.txt` (vLLM may need the [official install](https://docs.vllm.ai/en/stable/getting_started/installation.html) for your CUDA version).
+This script:
+
+1. Checks GPU / driver (`nvidia-smi`).
+2. On **Ubuntu/Debian**, installs **`python3-venv`** and **`python3-full`** via `apt` when needed (sudo).
+3. Creates **`.venv`** (if missing) and runs **`pip install -r requirements.txt`** inside it.
+
+Then either:
+
+```bash
+source .venv/bin/activate
+```
+
+or rely on **`scripts/launch_*.sh`** and **`eval/run_lm_eval.sh`**, which prepend **`.venv/bin`** to `PATH` when `.venv` exists.
+
+**Manual venv (if you skip the script):**
+
+```bash
+sudo apt-get update && sudo apt-get install -y python3-venv python3-full
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip wheel
+pip install -r requirements.txt
+```
+
+vLLM wheels may still depend on your driver/CUDA stack—see the [vLLM install docs](https://docs.vllm.ai/en/stable/getting_started/installation.html).
+
+**EC2 SSH (Ubuntu):** default user is `ubuntu`. Restrict your key: `chmod 400 kvopt.pem`, then  
+`ssh -i kvopt.pem ubuntu@<public-dns-or-ip>`
+
+**Benchmarks and `launch_proxy.py`:** use the venv interpreter if you are not activating the env, e.g. `.venv/bin/python benchmarks/bench_latency.py` or `source .venv/bin/activate` first.
 
 ## Single-node baseline (vLLM)
 
