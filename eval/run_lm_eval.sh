@@ -3,6 +3,7 @@
 # Prerequisites: pip install lm-eval, server running at BASE_URL.
 # Note: some MC/loglikelihood tasks prefer the /v1/completions API; if MMLU fails,
 # drop it from LM_EVAL_TASKS or switch to a completions-based flow (see lm-eval docs).
+# TruthfulQA: lm-eval registers truthfulqa_mc1 / truthfulqa_mc2 / truthfulqa_gen (not truthfulqa_mc).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -14,7 +15,7 @@ fi
 MODEL_NAME="${BENCH_MODEL:-google/gemma-7b-it}"
 BASE_URL="${BENCH_BASE_URL:-http://127.0.0.1:8000}"
 CHAT_URL="${BASE_URL%/}/v1/chat/completions"
-TASKS="${LM_EVAL_TASKS:-mmlu,gsm8k,hellaswag,truthfulqa_mc}"
+TASKS="${LM_EVAL_TASKS:-mmlu,gsm8k,hellaswag,truthfulqa_mc1}"
 LIMIT="${LM_EVAL_LIMIT:-}" # e.g. export LM_EVAL_LIMIT=50 for smoke tests
 
 # local-chat-completions targets OpenAI-compatible servers (vLLM) without a real OpenAI key.
