@@ -14,8 +14,10 @@ fi
 MODEL_NAME="${HF_MODEL_NAME:-google/gemma-7b-it}"
 HOST="${VLLM_HOST:-0.0.0.0}"
 PORT="${VLLM_PORT:-8000}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
-GPU_MEM_UTIL="${GPU_MEMORY_UTILIZATION:-0.90}"
+# Gemma 7B is ~16 GiB weights; on 24 GB GPUs, vLLM 0.21+ (CUDA graph KV reservation) often cannot
+# fit max_model_len=8192. Default 4096 here; override MAX_MODEL_LEN for larger GPUs.
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-4096}"
+GPU_MEM_UTIL="${GPU_MEMORY_UTILIZATION:-0.93}"
 PREFIX_CACHE="${ENABLE_PREFIX_CACHE:-0}"
 
 VLLM_DOCKER_IMAGE="${VLLM_DOCKER_IMAGE:-vllm/vllm-openai:latest}"
@@ -50,8 +52,9 @@ DOCKER_OPTS=(
 if [[ -n "${HF_TOKEN:-}" ]]; then DOCKER_OPTS+=(-e "HF_TOKEN=${HF_TOKEN}"); fi
 if [[ -n "${HUGGING_FACE_HUB_TOKEN:-}" ]]; then DOCKER_OPTS+=(-e "HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}"); fi
 
+# Image ENTRYPOINT is `vllm serve`; pass model as first positional arg (not `--model`).
 VLLM_ARGS=(
-  --model "$MODEL_NAME"
+  "$MODEL_NAME"
   --host "$HOST"
   --port "$PORT"
   --max-model-len "$MAX_MODEL_LEN"

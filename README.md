@@ -56,8 +56,6 @@ pip install -r requirements.txt
 
 vLLM wheels may still depend on your driver/CUDA stack—see the [vLLM install docs](https://docs.vllm.ai/en/stable/getting_started/installation.html).
 
-**EC2 SSH (Ubuntu):** default user is `ubuntu`. Restrict your key: `chmod 400 kvopt.pem`, then  
-`ssh -i kvopt.pem ubuntu@<public-dns-or-ip>`
 
 **Benchmarks and `launch_proxy.py`:** use the venv interpreter if you are not activating the env, e.g. `.venv/bin/python benchmarks/bench_latency.py` or `source .venv/bin/activate` first.
 
@@ -91,6 +89,8 @@ docker logs -f vllm-baseline
 
 Useful env vars: `VLLM_DOCKER_IMAGE` (default `vllm/vllm-openai:latest` — **pin a tag** for reproducibility), `VLLM_DOCKER_SKIP_PULL=1`, `HF_CACHE`, `VLLM_PORT`, `MAX_MODEL_LEN`, `GPU_MEMORY_UTILIZATION`, `ENABLE_PREFIX_CACHE=1`.
 
+**24 GB GPU + “KV cache … larger than available”:** The Docker script defaults to **`MAX_MODEL_LEN=4096`** and **`GPU_MEMORY_UTILIZATION=0.93`** for a safer fit on **L4 / A10G** class cards. vLLM **0.21+** may also reserve VRAM for CUDA-graph estimates; if you still hit KV limits after raising `MAX_MODEL_LEN`, you can pass e.g. **`-e VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0`** on `docker run` (see vLLM startup logs). For **8192** on one 24 GB GPU you may still need a **smaller model**, **AWQ**, or **more VRAM** — see [vLLM memory tuning](https://docs.vllm.ai/en/latest/configuration/conserving_memory/).
+
 Benchmarks from the host still use `BENCH_BASE_URL=http://127.0.0.1:8000` (or your `VLLM_PORT`) against the container thanks to **`--network host`**.
 
 ### Option A — venv on the host
@@ -107,6 +107,8 @@ ENABLE_PREFIX_CACHE=1 ./scripts/launch_baseline.sh
 ```
 
 Useful environment variables: `VLLM_PORT`, `MAX_MODEL_LEN`, `GPU_MEMORY_UTILIZATION`.
+
+On **24 GB** GPUs with **vLLM 0.21+**, if startup fails with **KV cache larger than available**, lower **`MAX_MODEL_LEN`** (for example `4096`) or raise **`GPU_MEMORY_UTILIZATION`**; see the Docker baseline section for optional **`VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS`** tuning.
 
 On **driver-only** Ubuntu images, host vLLM may require **`nvcc`** (see **`./scripts/setup_instance.sh`** and **`scripts/_inferopt_cuda_env.sh`**) unless you use **Docker** above.
 
