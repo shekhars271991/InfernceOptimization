@@ -16,7 +16,11 @@ MODEL_NAME="${BENCH_MODEL:-google/gemma-7b-it}"
 BASE_URL="${BENCH_BASE_URL:-http://127.0.0.1:8000}"
 CHAT_URL="${BASE_URL%/}/v1/chat/completions"
 TASKS="${LM_EVAL_TASKS:-mmlu,gsm8k,hellaswag,truthfulqa_mc1}"
-LIMIT="${LM_EVAL_LIMIT:-}" # e.g. export LM_EVAL_LIMIT=50 for smoke tests
+# Default 100 examples per task (quick run). Full datasets: `export LM_EVAL_LIMIT=` (empty) first.
+if [[ ! -v LM_EVAL_LIMIT ]]; then
+  export LM_EVAL_LIMIT=100
+fi
+LIMIT="${LM_EVAL_LIMIT}"
 
 # local-chat-completions requires OpenAI-style messages; --apply_chat_template formats prompts that way.
 # Pass more flags after the script name, e.g. ./eval/run_lm_eval.sh --trust_remote_code
@@ -34,5 +38,5 @@ if [[ -n "${LIMIT}" ]]; then
   ARGS+=(--limit "${LIMIT}")
 fi
 
-echo "Running lm_eval with tasks=${TASKS} chat_url=${CHAT_URL}"
+echo "Running lm_eval with tasks=${TASKS} limit=${LIMIT:-none} chat_url=${CHAT_URL}"
 python3 -m lm_eval "${ARGS[@]}" "$@"

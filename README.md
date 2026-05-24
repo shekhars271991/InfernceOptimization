@@ -182,7 +182,7 @@ export BENCH_MODEL=google/gemma-7b-it
 ./eval/run_lm_eval.sh
 ```
 
-Optional: `LM_EVAL_TASKS`, `LM_EVAL_LIMIT` (smoke tests), `LM_EVAL_NUM_CONCURRENT`, `LM_EVAL_BATCH_SIZE`. The script passes **`--apply_chat_template`** so prompts become proper chat **`messages`** for **`local-chat-completions`** (required by recent lm-eval). Add **`--trust_remote_code`** after the script if the tokenizer needs it.
+Optional: `LM_EVAL_TASKS`, **`LM_EVAL_LIMIT`** (defaults to **100** per task for a quick run; use **`export LM_EVAL_LIMIT=`** empty for full datasets), `LM_EVAL_NUM_CONCURRENT`, `LM_EVAL_BATCH_SIZE`. The script passes **`--apply_chat_template`** so prompts become proper chat **`messages`** for **`local-chat-completions`** (required by recent lm-eval). Add **`--trust_remote_code`** after the script if the tokenizer needs it.
 
 Some tasks (notably certain **MMLU** setups) expect loglikelihood via a **completions** API; if a task fails on chat, trim `LM_EVAL_TASKS` or use a completions-based workflow (see [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) docs).
 
